@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { User, AttendanceRecord } from '../types';
 import { DATE_CONFIG } from '../constants';
@@ -86,7 +87,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ users }) => {
                 <img 
                   src={user.avatar} 
                   alt={user.name} 
-                  className="w-10 h-10 border-2 border-dark grayscale hover:grayscale-0 transition-all"
+                  className="w-10 h-10 bg-white border-2 border-dark rounded-full grayscale hover:grayscale-0 transition-all"
                 />
                 <div className="flex-1">
                   <div className="flex justify-between items-center mb-1">

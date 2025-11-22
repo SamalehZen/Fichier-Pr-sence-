@@ -12,9 +12,17 @@ export interface AttendanceRecord {
 export interface User {
   id: string;
   name: string;
-  group: UserGroup; // Changed from role
+  group: UserGroup;
   avatar: string;
   attendance: Record<string, AttendanceRecord>; // Key is date string
+}
+
+export interface Backup {
+  id?: number;
+  timestamp: number;
+  name: string;
+  data: User[];
+  version: string;
 }
 
 export interface DateRange {

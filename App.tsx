@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, AttendanceRecord, UserGroup } from './types';
-import { DATE_CONFIG, formatDayName, formatDate } from './constants';
+import { DATE_CONFIG, formatDayName, formatDate, DEFAULT_USERS } from './constants';
 import { NeoCard } from './components/NeoCard';
 import { NeoButton } from './components/NeoButton';
 import { UserForm } from './components/UserForm';
@@ -12,23 +12,22 @@ import { LayoutGrid, List, Download, Filter, UserCircle2, Trash2 } from 'lucide-
 import * as XLSX from 'xlsx';
 
 const App: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'JEAN DUPONT',
-      group: 'Groupe Matin',
-      avatar: 'https://picsum.photos/seed/jean/200',
-      attendance: {}
-    },
-    {
-      id: '2',
-      name: 'MARIE CURIE',
-      group: 'Groupe Soir',
-      avatar: 'https://picsum.photos/seed/marie/200',
-      attendance: {}
+  // --- State Management (Reverted from DB) ---
+  const [users, setUsers] = useState<User[]>(() => {
+    // Load from local storage if available to prevent data loss on refresh
+    // Changed key to 'v3' to force reload of new default avatars and names
+    const saved = localStorage.getItem('neo-presence-users-v3');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        // Simple check to see if it's an empty array from previous cleanups
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+        }
     }
-  ]);
-
+    // If no data or empty array, load defaults
+    return DEFAULT_USERS;
+  });
+  
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'PRESENT' | 'ABSENT'>('ALL');
   const [filterGroup, setFilterGroup] = useState<'ALL' | UserGroup>('ALL');
   const [viewMode, setViewMode] = useState<'TABLE' | 'STATS'>('TABLE');
@@ -36,15 +35,21 @@ const App: React.FC = () => {
   // State for deletion modal
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
 
+  // Save to local storage whenever users change
+  useEffect(() => {
+    localStorage.setItem('neo-presence-users-v3', JSON.stringify(users));
+  }, [users]);
+
   const handleAddUser = (name: string, group: UserGroup) => {
     const newUser: User = {
       id: Math.random().toString(36).substr(2, 9),
       name: name.toUpperCase(),
       group: group,
-      avatar: `https://picsum.photos/seed/${Math.random()}/200`,
+      // Generate a consistent avatar style for new users
+      avatar: `https://avatar.iran.liara.run/public?username=${name.replace(/\s/g, '')}`,
       attendance: {}
     };
-    setUsers([...users, newUser]);
+    setUsers(prev => [...prev, newUser]);
   };
 
   // Triggered when trash button is clicked
@@ -56,26 +61,23 @@ const App: React.FC = () => {
   // Triggered when confirming in modal
   const executeDelete = () => {
     if (userToDelete) {
-        setUsers(prevUsers => prevUsers.filter(user => user.id !== userToDelete));
+        setUsers(prev => prev.filter(u => u.id !== userToDelete));
         setUserToDelete(null);
     }
   };
 
   const handleAttendanceChange = (userId: string, date: string, status: 'PRESENT' | 'ABSENT', justification?: string) => {
-    setUsers(prevUsers => prevUsers.map(user => {
-      if (user.id !== userId) return user;
-      const newRecord: AttendanceRecord = {
-        date,
-        status,
-        justification
-      };
-      return {
-        ...user,
-        attendance: {
-          ...user.attendance,
-          [date]: newRecord
+    setUsers(prev => prev.map(user => {
+        if (user.id === userId) {
+            return {
+                ...user,
+                attendance: {
+                    ...user.attendance,
+                    [date]: { date, status, justification }
+                }
+            };
         }
-      };
+        return user;
     }));
   };
 
@@ -176,7 +178,7 @@ const App: React.FC = () => {
             </div>
         </div>
         
-        <div className="flex gap-4">
+        <div className="flex gap-4 flex-wrap">
             <NeoButton onClick={() => setViewMode('TABLE')} variant={viewMode === 'TABLE' ? 'primary' : 'secondary'} icon={<List size={20} />}>
                 TABLEAU
             </NeoButton>
@@ -184,13 +186,14 @@ const App: React.FC = () => {
                 STATS
             </NeoButton>
             <NeoButton onClick={exportXLSX} variant="secondary" icon={<Download size={20} />}>
-                EXPORT XLSX
+                XLSX
             </NeoButton>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="space-y-8">
+        
         {/* Stats Summary visible everywhere */}
         {viewMode === 'STATS' && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -282,7 +285,7 @@ const App: React.FC = () => {
                         {DATE_CONFIG.dates.map(date => (
                           <th key={date} className="bg-white border-b-4 border-dark p-2 min-w-[100px] text-center align-bottom">
                             <div className="flex flex-col whitespace-nowrap">
-                                <span className="text-[10px] font-mono text-gray-500 uppercase">{formatDayName(date)}</span>
+                                <span className="text-[10px] font-mono text-dark uppercase">{formatDayName(date)}</span>
                                 <span className="text-sm font-bold text-dark">{formatDate(date)}</span>
                             </div>
                           </th>
@@ -295,7 +298,7 @@ const App: React.FC = () => {
                           <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50 border-r-2 border-dark p-3">
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-3">
-                                    <img src={user.avatar} alt="" className="w-10 h-10 rounded-none border-2 border-dark shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]" />
+                                    <img src={user.avatar} alt="" className="w-10 h-10 bg-white rounded-full border-2 border-dark shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]" />
                                     <div className="w-full">
                                         <div className="font-black text-sm leading-tight truncate max-w-[120px]">{user.name}</div>
                                         <div className={`text-[9px] font-bold uppercase px-1.5 py-0.5 mt-1 inline-block border border-dark ${user.group === 'Groupe Matin' ? 'bg-white text-dark' : 'bg-dark text-neon'}`}>
