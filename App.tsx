@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, AttendanceRecord, UserGroup } from './types';
+import { User, AttendanceRecord, UserGroup, AttendanceStatus } from './types';
 import { DATE_CONFIG, formatDayName, formatDate, DEFAULT_USERS } from './constants';
 import { NeoCard } from './components/NeoCard';
 import { NeoButton } from './components/NeoButton';
@@ -8,7 +8,7 @@ import { UserForm } from './components/UserForm';
 import { AttendanceCell } from './components/AttendanceCell';
 import { StatsView } from './components/StatsView';
 import { ConfirmationModal } from './components/ConfirmationModal';
-import { LayoutGrid, List, Download, Filter, UserCircle2, Trash2 } from 'lucide-react';
+import { LayoutGrid, List, Download, Filter, UserCircle2, Trash2, CalendarDays } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const App: React.FC = () => {
@@ -66,7 +66,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAttendanceChange = (userId: string, date: string, status: 'PRESENT' | 'ABSENT', justification?: string) => {
+  const handleAttendanceChange = (userId: string, date: string, status: AttendanceStatus, justification?: string) => {
     setUsers(prev => prev.map(user => {
         if (user.id === userId) {
             return {
@@ -274,28 +274,63 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto pb-4">
-                  <table className="w-full border-collapse">
+                  <table className="w-full border-collapse border-spacing-0">
                     <thead>
                       <tr>
-                        <th className="sticky left-0 z-20 bg-white border-b-4 border-dark p-3 text-left min-w-[240px]">
-                            <div className="flex items-center gap-2 text-dark">
-                                <UserCircle2 /> MEMBRE
+                        {/* Sticky Name Header */}
+                        <th className="sticky left-0 z-[60] bg-white p-0 align-bottom border-b-4 border-dark min-w-[260px]">
+                            <div className="flex items-center gap-3 p-4 border-r-2 border-dark bg-dark text-white h-full relative overflow-hidden group">
+                                {/* Background Pattern */}
+                                <div className="absolute inset-0 opacity-10 pattern-diagonal pointer-events-none"></div>
+                                
+                                <div className="relative z-10 p-2 bg-neon border-2 border-white text-dark shadow-[3px_3px_0px_rgba(255,255,255,0.3)] rounded-none">
+                                    <UserCircle2 size={24} />
+                                </div>
+                                <div className="flex flex-col z-10">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">LISTE DES</span>
+                                    <span className="text-lg font-black uppercase tracking-tight leading-none">MEMBRES</span>
+                                </div>
                             </div>
                         </th>
-                        {DATE_CONFIG.dates.map(date => (
-                          <th key={date} className="bg-white border-b-4 border-dark p-2 min-w-[100px] text-center align-bottom">
-                            <div className="flex flex-col whitespace-nowrap">
-                                <span className="text-[10px] font-mono text-dark uppercase">{formatDayName(date)}</span>
-                                <span className="text-sm font-bold text-dark">{formatDate(date)}</span>
-                            </div>
-                          </th>
-                        ))}
+                        
+                        {/* Dates Headers */}
+                        {DATE_CONFIG.dates.map(date => {
+                            // Highlights Fridays only
+                            const isSpecialDay = ['ven.'].includes(formatDayName(date).toLowerCase());
+                            return (
+                              <th key={date} className="p-2 align-bottom border-b-4 border-dark min-w-[110px] bg-white">
+                                <div className={`
+                                    flex flex-col border-2 border-dark transition-all duration-200 group cursor-default
+                                    ${isSpecialDay ? 'bg-gray-100 shadow-[3px_3px_0px_#2C2C2C]' : 'bg-white hover:-translate-y-1 shadow-[3px_3px_0px_#39FF14]'}
+                                `}>
+                                    {/* Day Name */}
+                                    <div className={`
+                                        text-[10px] font-black uppercase py-1 border-b-2 border-dark tracking-wider
+                                        ${isSpecialDay ? 'bg-dark text-white' : 'bg-gray-100 text-dark'}
+                                    `}>
+                                        {formatDayName(date)}
+                                    </div>
+                                    
+                                    {/* Date Number */}
+                                    <div className="py-2 px-1 flex flex-col items-center justify-center gap-1 relative overflow-hidden">
+                                        <CalendarDays size={14} className="text-gray-400 opacity-50 absolute top-1 right-1" />
+                                        <span className="text-lg font-black text-dark leading-none">
+                                            {formatDate(date).split('/')[0]}
+                                        </span>
+                                        <span className="text-[10px] font-bold text-gray-500 bg-white px-1 -mt-1">
+                                            /{formatDate(date).split('/')[1]}
+                                        </span>
+                                    </div>
+                                </div>
+                              </th>
+                            );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
                       {filteredUsers.map((user, idx) => (
                         <tr key={user.id} className={`group hover:bg-gray-50 transition-colors border-b border-gray-200`}>
-                          <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50 border-r-2 border-dark p-3">
+                          <td className="sticky left-0 z-[50] bg-white group-hover:bg-gray-50 border-r-2 border-dark p-3">
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-3">
                                     <img src={user.avatar} alt="" className="w-10 h-10 bg-white rounded-full border-2 border-dark shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]" />
@@ -315,17 +350,20 @@ const App: React.FC = () => {
                                 </button>
                             </div>
                           </td>
-                          {DATE_CONFIG.dates.map(date => (
-                            <td key={date} className="p-2 text-center border-r border-gray-100">
-                              <div className="flex justify-center">
-                                <AttendanceCell 
-                                    date={formatDate(date)}
-                                    record={user.attendance[date]}
-                                    onChange={(status, just) => handleAttendanceChange(user.id, date, status, just)}
-                                />
-                              </div>
-                            </td>
-                          ))}
+                          {DATE_CONFIG.dates.map(date => {
+                            const isSpecialDay = ['ven.'].includes(formatDayName(date).toLowerCase());
+                            return (
+                                <td key={date} className={`p-2 text-center border-r border-gray-100 ${isSpecialDay ? 'bg-gray-50/50' : ''}`}>
+                                <div className="flex justify-center">
+                                    <AttendanceCell 
+                                        date={formatDate(date)}
+                                        record={user.attendance[date]}
+                                        onChange={(status, just) => handleAttendanceChange(user.id, date, status, just)}
+                                    />
+                                </div>
+                                </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>

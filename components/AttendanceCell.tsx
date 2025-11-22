@@ -1,12 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { AttendanceRecord, JUSTIFICATIONS } from '../types';
-import { Check, X, MessageSquare } from 'lucide-react';
+import { AttendanceRecord, JUSTIFICATIONS, AttendanceStatus } from '../types';
+import { Check, X, MessageSquare, Minus } from 'lucide-react';
 
 interface AttendanceCellProps {
   date: string;
   record: AttendanceRecord | undefined;
-  onChange: (status: 'PRESENT' | 'ABSENT', justification?: string) => void;
+  onChange: (status: AttendanceStatus, justification?: string) => void;
 }
 
 export const AttendanceCell: React.FC<AttendanceCellProps> = ({ date, record, onChange }) => {
@@ -57,12 +57,20 @@ export const AttendanceCell: React.FC<AttendanceCellProps> = ({ date, record, on
   };
 
   const handleStatusClick = (newStatus: 'PRESENT' | 'ABSENT') => {
+    // LOGIQUE DE BASCULEMENT (TOGGLE)
+    // Si le statut cliqué est le même que l'actuel, on décoche (reviens à PENDING)
+    if (status === newStatus) {
+        onChange('PENDING');
+        setIsOpen(false);
+        return;
+    }
+
+    // Sinon, on applique le nouveau statut
     if (newStatus === 'PRESENT') {
       onChange('PRESENT');
       setIsOpen(false);
     } else {
-      // If switching to absent, keep open to select justification
-      // Default to first justification if none exists
+      // Si on passe à absent, on met une justification par défaut si nécessaire
       if (status !== 'ABSENT') {
          onChange('ABSENT', JUSTIFICATIONS[0]); 
       }
@@ -217,11 +225,21 @@ export const AttendanceCell: React.FC<AttendanceCellProps> = ({ date, record, on
                     </div>
                 </div>
             )}
+            
+            {/* Option explicite pour effacer (facultatif mais utile pour l'UX) */}
+            {status !== 'PENDING' && (
+                 <button 
+                    onClick={() => { onChange('PENDING'); setIsOpen(false); }}
+                    className="w-full mt-2 py-2 text-xs font-bold uppercase text-gray-400 hover:text-alert hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors flex items-center justify-center gap-2"
+                >
+                    <Minus size={12} /> Effacer le statut
+                </button>
+            )}
 
             {/* Mobile Only: Close Button */}
             <button 
                 onClick={() => setIsOpen(false)}
-                className="mt-6 w-full md:hidden bg-dark text-white font-bold py-4 uppercase tracking-widest active:bg-black"
+                className="mt-4 w-full md:hidden bg-dark text-white font-bold py-4 uppercase tracking-widest active:bg-black"
             >
                 Fermer
             </button>
