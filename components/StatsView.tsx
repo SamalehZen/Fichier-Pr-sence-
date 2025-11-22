@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { User, AttendanceRecord } from '../types';
 import { DATE_CONFIG } from '../constants';
@@ -74,30 +73,31 @@ export const StatsView: React.FC<StatsViewProps> = ({ users }) => {
       </div>
 
       <NeoCard title="PERFORMANCE INDIVIDUELLE">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
           {users.map(user => {
             const userPresent = Object.values(user.attendance).filter((r: AttendanceRecord) => r.status === 'PRESENT').length;
             const userAbsent = Object.values(user.attendance).filter((r: AttendanceRecord) => r.status === 'ABSENT').length;
-            const userTotal = userPresent + userAbsent;
-            // Use totalDays for the calculation base to show completion over the period
-            const percentage = userTotal > 0 ? Math.round((userPresent / userTotal) * 100) : 0;
-
+            // Note: On n'utilise plus userTotal pour le calcul de la barre, mais totalDays (la période entière)
+            
             return (
-              <div key={user.id} className="flex items-center gap-4">
+              <div key={user.id} className="flex items-start gap-4 p-2 hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200">
                 <img 
                   src={user.avatar} 
                   alt={user.name} 
-                  className="w-10 h-10 bg-white border-2 border-dark rounded-full grayscale hover:grayscale-0 transition-all"
+                  className="w-12 h-12 bg-white border-2 border-dark rounded-full grayscale hover:grayscale-0 transition-all object-cover shrink-0"
                 />
-                <div className="flex-1">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-bold text-sm">{user.name}</span>
-                    {userAbsent > 0 && <span className="text-[10px] bg-alert text-white px-1 font-bold">{userAbsent} ABS</span>}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-black text-sm truncate pr-2">{user.name}</span>
+                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 border border-dark ${user.group === 'Groupe Matin' ? 'bg-white' : 'bg-dark text-neon'}`}>
+                        {user.group === 'Groupe Matin' ? 'MATIN' : 'SOIR'}
+                    </span>
                   </div>
+                  
                   <ProgressBar 
-                    value={userPresent} 
-                    max={Math.max(userTotal, 1)} 
-                    colorClass={percentage < 50 ? 'bg-alert' : 'bg-neon'}
+                    present={userPresent} 
+                    absent={userAbsent} 
+                    total={totalDays} 
                   />
                 </div>
               </div>
