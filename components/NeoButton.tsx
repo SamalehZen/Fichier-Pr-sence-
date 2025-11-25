@@ -1,32 +1,42 @@
 import React from 'react';
 
-interface NeoButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger';
+interface GlassButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'danger' | 'success';
   icon?: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-export const NeoButton: React.FC<NeoButtonProps> = ({ 
-  children, 
-  variant = 'primary', 
+export const NeoButton: React.FC<GlassButtonProps> = ({
+  children,
+  variant = 'primary',
   icon,
-  className = '', 
-  ...props 
+  size = 'md',
+  className = '',
+  ...props
 }) => {
-  const baseStyles = "px-6 py-3 font-bold border-2 border-dark transition-all duration-200 flex items-center justify-center gap-2 active:translate-x-[4px] active:translate-y-[4px] active:shadow-none";
-  
-  const variants = {
-    primary: "bg-neon text-dark shadow-neo hover:bg-white hover:shadow-neo-hover hover:translate-x-[2px] hover:translate-y-[2px]",
-    secondary: "bg-white text-dark shadow-neo hover:bg-gray-100 hover:shadow-neo-hover hover:translate-x-[2px] hover:translate-y-[2px]",
-    danger: "bg-alert text-white shadow-neo hover:bg-red-600 hover:shadow-neo-hover hover:translate-x-[2px] hover:translate-y-[2px]",
+  const baseStyles = 'font-semibold rounded-glass backdrop-blur-glass transition-all duration-300 flex items-center justify-center gap-2 border relative overflow-hidden group';
+
+  const sizeStyles: Record<'sm' | 'md' | 'lg', string> = {
+    sm: 'px-4 py-2 text-xs',
+    md: 'px-6 py-3 text-sm',
+    lg: 'px-8 py-4 text-base',
+  };
+
+  const variants: Record<'primary' | 'secondary' | 'danger' | 'success', string> = {
+    primary: 'bg-gradient-to-r from-primary-from to-primary-to text-white border-white/20 shadow-glass hover:shadow-glass-lg hover:scale-105 active:scale-100',
+    secondary: 'glass border-white/10 text-white/80 hover:glass-hover hover:text-white hover:scale-105 active:scale-100',
+    danger: 'bg-gradient-to-r from-red-500 to-red-600 text-white border-red-400/20 shadow-glass hover:shadow-glass-lg hover:from-red-600 hover:to-red-700 hover:scale-105 active:scale-100',
+    success: 'bg-gradient-to-r from-emerald-500 to-green-600 text-white border-emerald-400/20 shadow-glass hover:shadow-glass-lg hover:from-emerald-600 hover:to-green-700 hover:scale-105 active:scale-100',
   };
 
   return (
-    <button 
-      className={`${baseStyles} ${variants[variant]} ${className}`}
+    <button
+      className={`${baseStyles} ${sizeStyles[size]} ${variants[variant]} ${className}`}
       {...props}
     >
-      {icon && <span className="w-5 h-5">{icon}</span>}
-      <span className="uppercase tracking-wider text-sm">{children}</span>
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+      {icon && <span className="w-5 h-5 relative z-10">{icon}</span>}
+      <span className="uppercase tracking-wider relative z-10">{children}</span>
     </button>
   );
 };

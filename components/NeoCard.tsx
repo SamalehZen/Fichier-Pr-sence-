@@ -8,13 +8,19 @@ interface NeoCardProps {
 
 export const NeoCard: React.FC<NeoCardProps> = ({ children, className = '', title }) => {
   return (
-    <div className={`bg-white border-2 border-dark shadow-neo p-6 relative ${className}`}>
+    <div className={`glass-dark rounded-glass-lg p-6 backdrop-blur-glass relative border border-white/10 shadow-glass overflow-hidden ${className}`}>
+      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none"></div>
       {title && (
-        <div className="absolute -top-5 left-4 bg-dark text-white px-3 py-1 text-sm font-bold uppercase tracking-widest transform -rotate-1">
-          {title}
+        <div className="relative mb-6">
+          <h2 className="text-lg font-bold uppercase tracking-wider text-white flex items-center gap-3">
+            <span className="h-1 w-12 bg-gradient-to-r from-primary-from to-primary-to rounded-full"></span>
+            {title}
+          </h2>
         </div>
       )}
-      {children}
+      <div className="relative z-10">
+        {children}
+      </div>
     </div>
   );
 };

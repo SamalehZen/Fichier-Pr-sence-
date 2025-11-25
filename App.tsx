@@ -3,7 +3,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { User, AttendanceRecord, UserGroup, AttendanceStatus } from './types';
 import { DATE_CONFIG, formatDayName, formatDate, DEFAULT_USERS } from './constants';
 import { NeoCard } from './components/NeoCard';
-import { NeoButton } from './components/NeoButton';
 import { UserForm } from './components/UserForm';
 import { AttendanceCell } from './components/AttendanceCell';
 import { StatsView } from './components/StatsView';
@@ -157,9 +156,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-[#e0e0e0] text-dark font-sans selection:bg-neon selection:text-dark">
-      {/* Confirmation Modal */}
-      <ConfirmationModal 
+    <div className="min-h-screen p-4 md:p-8 text-white font-sans selection:bg-primary-to/30 selection:text-white relative">
+      <ConfirmationModal
         isOpen={!!userToDelete}
         title="SUPPRESSION DÉFINITIVE"
         message="Êtes-vous sûr de vouloir supprimer ce membre ? Toutes les données de présence associées seront perdues."
@@ -167,218 +165,264 @@ const App: React.FC = () => {
         onCancel={() => setUserToDelete(null)}
       />
 
-      {/* Header */}
       <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-            <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-2" style={{ textShadow: '4px 4px 0px #fff' }}>
-            PRESENCE<span className="text-neon stroke-black" style={{ WebkitTextStroke: '2px black' }}>.TRACKER</span>
-            </h1>
-            <div className="bg-dark text-white inline-block px-4 py-2 font-bold font-mono transform -rotate-2">
-            PÉRIODE : 22/11/2025 → 06/12/2025
-            </div>
+          <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tight mb-4 relative">
+            <span className="gradient-text drop-shadow-2xl">
+              PRESENCE.TRACKER
+            </span>
+            <div className="absolute -bottom-2 left-0 h-1 w-32 bg-gradient-to-r from-primary-from to-primary-to rounded-full"></div>
+          </h1>
+          <div className="glass-dark text-white inline-block px-6 py-3 rounded-glass font-semibold text-sm backdrop-blur-glass">
+            <span className="text-white/60">PÉRIODE :</span> 22/11/2025 → 06/12/2025
+          </div>
         </div>
-        
-        <div className="flex gap-4 flex-wrap">
-            <NeoButton onClick={() => setViewMode('TABLE')} variant={viewMode === 'TABLE' ? 'primary' : 'secondary'} icon={<List size={20} />}>
-                TABLEAU
-            </NeoButton>
-            <NeoButton onClick={() => setViewMode('STATS')} variant={viewMode === 'STATS' ? 'primary' : 'secondary'} icon={<LayoutGrid size={20} />}>
-                STATS
-            </NeoButton>
-            <NeoButton onClick={exportXLSX} variant="secondary" icon={<Download size={20} />}>
-                XLSX
-            </NeoButton>
+
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={() => setViewMode('TABLE')}
+            className={`${
+              viewMode === 'TABLE'
+                ? 'bg-gradient-to-r from-primary-from to-primary-to text-white border-white/20 shadow-glass-lg'
+                : 'glass border-white/10 text-white/80 hover:glass-hover hover:text-white'
+            } px-6 py-3 rounded-glass backdrop-blur-glass font-semibold text-sm transition-all duration-300 flex items-center gap-2 border`}
+          >
+            <List size={20} />
+            TABLEAU
+          </button>
+          <button
+            onClick={() => setViewMode('STATS')}
+            className={`${
+              viewMode === 'STATS'
+                ? 'bg-gradient-to-r from-primary-from to-primary-to text-white border-white/20 shadow-glass-lg'
+                : 'glass border-white/10 text-white/80 hover:glass-hover hover:text-white'
+            } px-6 py-3 rounded-glass backdrop-blur-glass font-semibold text-sm transition-all duration-300 flex items-center gap-2 border`}
+          >
+            <LayoutGrid size={20} />
+            STATS
+          </button>
+          <button
+            onClick={exportXLSX}
+            className="glass border border-white/10 text-white/80 hover:glass-hover hover:text-white px-6 py-3 rounded-glass backdrop-blur-glass font-semibold text-sm transition-all duration-300 flex items-center gap-2"
+          >
+            <Download size={20} />
+            XLSX
+          </button>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="space-y-8">
-        
-        {/* Stats Summary visible everywhere */}
         {viewMode === 'STATS' && (
-             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <StatsView users={users} />
-             </div>
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <StatsView users={users} />
+          </div>
         )}
 
         {viewMode === 'TABLE' && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Left Column: Add User */}
             <div className="lg:col-span-1">
               <UserForm onAddUser={handleAddUser} />
             </div>
 
-            {/* Right Column: Table */}
-            <div className="lg:col-span-3">
-              <NeoCard className="" title="FEUILLE D'ÉMARGEMENT">
-                
-                {/* Filters */}
-                <div className="mb-6 flex flex-col md:flex-row md:items-center gap-6 border-b-2 border-gray-200 pb-6">
-                    <div className="flex items-center gap-2 text-gray-400">
-                        <Filter size={20} />
-                        <span className="font-black text-sm uppercase">FILTRES</span>
-                    </div>
+            <div className="lg:col-span-3 space-y-6">
+              <NeoCard title="FEUILLE D'ÉMARGEMENT" className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center gap-6 glass-dark rounded-glass-lg p-6 backdrop-blur-glass border border-white/10">
+                  <div className="flex items-center gap-2 text-white/60">
+                    <Filter size={20} />
+                    <span className="font-bold text-sm uppercase tracking-wider">FILTRES</span>
+                  </div>
 
-                    {/* Group Filter */}
-                    <div className="flex items-center gap-2">
-                         <span className="text-xs font-bold uppercase mr-1">Groupe:</span>
-                         <div className="flex gap-1">
-                             <button 
-                                onClick={() => setFilterGroup('ALL')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterGroup === 'ALL' ? 'bg-dark text-white shadow-neo-sm' : 'bg-white hover:bg-gray-100'}`}
-                             >
-                                Tous
-                             </button>
-                             <button 
-                                onClick={() => setFilterGroup('Groupe Matin')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterGroup === 'Groupe Matin' ? 'bg-white text-dark shadow-neo-sm' : 'bg-white hover:bg-gray-100 opacity-60 hover:opacity-100'}`}
-                             >
-                                Matin
-                             </button>
-                             <button 
-                                onClick={() => setFilterGroup('Groupe Soir')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterGroup === 'Groupe Soir' ? 'bg-dark text-neon shadow-neo-sm' : 'bg-white hover:bg-gray-100 opacity-60 hover:opacity-100'}`}
-                             >
-                                Soir
-                             </button>
-                         </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold uppercase text-white/60">Groupe:</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setFilterGroup('ALL')}
+                        className={`${
+                          filterGroup === 'ALL'
+                            ? 'bg-gradient-to-r from-primary-from to-primary-to text-white border-white/20 shadow-glass'
+                            : 'glass border-white/10 text-white/70 hover:text-white hover:bg-white/15'
+                        } px-4 py-2 text-xs font-semibold uppercase rounded-full transition-all duration-300 border`}
+                      >
+                        Tous
+                      </button>
+                      <button
+                        onClick={() => setFilterGroup('Groupe Matin')}
+                        className={`${
+                          filterGroup === 'Groupe Matin'
+                            ? 'bg-gradient-to-r from-primary-from to-primary-to text-white border-white/20 shadow-glass'
+                            : 'glass border-white/10 text-white/70 hover:text-white hover:bg-white/15'
+                        } px-4 py-2 text-xs font-semibold uppercase rounded-full transition-all duration-300 border`}
+                      >
+                        Matin
+                      </button>
+                      <button
+                        onClick={() => setFilterGroup('Groupe Soir')}
+                        className={`${
+                          filterGroup === 'Groupe Soir'
+                            ? 'bg-gradient-to-r from-secondary-from to-secondary-to text-white border-white/20 shadow-glass'
+                            : 'glass border-white/10 text-white/70 hover:text-white hover:bg-white/15'
+                        } px-4 py-2 text-xs font-semibold uppercase rounded-full transition-all duration-300 border`}
+                      >
+                        Soir
+                      </button>
                     </div>
+                  </div>
 
-                    {/* Separator */}
-                    <div className="hidden md:block w-px h-8 bg-gray-300"></div>
+                  <div className="hidden md:block w-px h-8 bg-white/10"></div>
 
-                    {/* Status Filter */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold uppercase mr-1">Statut:</span>
-                        <div className="flex gap-1">
-                            <button 
-                                onClick={() => setFilterStatus('ALL')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterStatus === 'ALL' ? 'bg-dark text-white shadow-neo-sm' : 'bg-white hover:bg-gray-100'}`}
-                            >
-                                Tous
-                            </button>
-                            <button 
-                                onClick={() => setFilterStatus('PRESENT')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterStatus === 'PRESENT' ? 'bg-neon text-dark shadow-neo-sm' : 'bg-white hover:bg-gray-100'}`}
-                            >
-                                Présent
-                            </button>
-                            <button 
-                                onClick={() => setFilterStatus('ABSENT')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterStatus === 'ABSENT' ? 'bg-alert text-white shadow-neo-sm' : 'bg-white hover:bg-gray-100'}`}
-                            >
-                                Absent
-                            </button>
-                        </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold uppercase text-white/60">Statut:</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setFilterStatus('ALL')}
+                        className={`${
+                          filterStatus === 'ALL'
+                            ? 'bg-gradient-to-r from-primary-from to-primary-to text-white border-white/20 shadow-glass'
+                            : 'glass border-white/10 text-white/70 hover:text-white hover:bg-white/15'
+                        } px-4 py-2 text-xs font-semibold uppercase rounded-full transition-all duration-300 border`}
+                      >
+                        Tous
+                      </button>
+                      <button
+                        onClick={() => setFilterStatus('PRESENT')}
+                        className={`${
+                          filterStatus === 'PRESENT'
+                            ? 'bg-gradient-to-r from-success-from to-success-to text-white border-white/20 shadow-glass'
+                            : 'glass border-white/10 text-white/70 hover:text-white hover:bg-white/15'
+                        } px-4 py-2 text-xs font-semibold uppercase rounded-full transition-all duration-300 border`}
+                      >
+                        Présent
+                      </button>
+                      <button
+                        onClick={() => setFilterStatus('ABSENT')}
+                        className={`${
+                          filterStatus === 'ABSENT'
+                            ? 'bg-gradient-to-r from-danger-from to-danger-to text-white border-white/20 shadow-glass'
+                            : 'glass border-white/10 text-white/70 hover:text-white hover:bg-white/15'
+                        } px-4 py-2 text-xs font-semibold uppercase rounded-full transition-all duration-300 border`}
+                      >
+                        Absent
+                      </button>
                     </div>
+                  </div>
                 </div>
 
-                <div className="overflow-x-auto pb-4">
-                  <table className="w-full border-collapse border-spacing-0">
-                    <thead>
-                      <tr>
-                        {/* Sticky Name Header */}
-                        <th className="sticky left-0 z-[60] bg-white p-0 align-bottom border-b-4 border-dark min-w-[260px]">
-                            <div className="flex items-center gap-3 p-4 border-r-2 border-dark bg-dark text-white h-full relative overflow-hidden group">
-                                {/* Background Pattern */}
-                                <div className="absolute inset-0 opacity-10 pattern-diagonal pointer-events-none"></div>
-                                
-                                <div className="relative z-10 p-2 bg-neon border-2 border-white text-dark shadow-[3px_3px_0px_rgba(255,255,255,0.3)] rounded-none">
-                                    <UserCircle2 size={24} />
-                                </div>
-                                <div className="flex flex-col z-10">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">LISTE DES</span>
-                                    <span className="text-lg font-black uppercase tracking-tight leading-none">MEMBRES</span>
-                                </div>
+                <div className="glass-dark rounded-glass-lg p-6 backdrop-blur-glass overflow-hidden border border-white/10">
+                  <div className="overflow-x-auto pb-4">
+                    <table className="w-full border-collapse border-spacing-0">
+                      <thead>
+                        <tr>
+                          <th className="sticky left-0 z-[60] p-0 align-bottom min-w-[260px]">
+                            <div className="flex items-center gap-3 p-4 glass-dark rounded-tl-glass backdrop-blur-glass relative overflow-hidden group border-r border-white/10">
+                              <div className="relative z-10 p-3 bg-gradient-to-br from-primary-from to-primary-to rounded-glass shadow-glass">
+                                <UserCircle2 size={24} className="text-white" />
+                              </div>
+                              <div className="flex flex-col z-10">
+                                <span className="text-xs font-semibold text-white/50 uppercase tracking-wider leading-none mb-1">LISTE DES</span>
+                                <span className="text-lg font-bold uppercase tracking-tight leading-none text-white">MEMBRES</span>
+                              </div>
                             </div>
-                        </th>
-                        
-                        {/* Dates Headers */}
-                        {DATE_CONFIG.dates.map(date => {
-                            // Highlights Fridays only
-                            const isSpecialDay = ['ven.'].includes(formatDayName(date).toLowerCase());
-                            return (
-                              <th key={date} className="p-2 align-bottom border-b-4 border-dark min-w-[110px] bg-white">
-                                <div className={`
-                                    flex flex-col border-2 border-dark transition-all duration-200 group cursor-default
-                                    ${isSpecialDay ? 'bg-gray-100 shadow-[3px_3px_0px_#2C2C2C]' : 'bg-white hover:-translate-y-1 shadow-[3px_3px_0px_#39FF14]'}
-                                `}>
-                                    {/* Day Name */}
-                                    <div className={`
-                                        text-[10px] font-black uppercase py-1 border-b-2 border-dark tracking-wider
-                                        ${isSpecialDay ? 'bg-dark text-white' : 'bg-gray-100 text-dark'}
-                                    `}>
-                                        {formatDayName(date)}
-                                    </div>
-                                    
-                                    {/* Date Number */}
-                                    <div className="py-2 px-1 flex flex-col items-center justify-center gap-1 relative overflow-hidden">
-                                        <CalendarDays size={14} className="text-gray-400 opacity-50 absolute top-1 right-1" />
-                                        <span className="text-lg font-black text-dark leading-none">
-                                            {formatDate(date).split('/')[0]}
-                                        </span>
-                                        <span className="text-[10px] font-bold text-gray-500 bg-white px-1 -mt-1">
-                                            /{formatDate(date).split('/')[1]}
-                                        </span>
-                                    </div>
-                                </div>
-                              </th>
-                            );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredUsers.map((user, idx) => (
-                        <tr key={user.id} className={`group hover:bg-gray-50 transition-colors border-b border-gray-200`}>
-                          <td className="sticky left-0 z-[50] bg-white group-hover:bg-gray-50 border-r-2 border-dark p-3">
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-3">
-                                    <img src={user.avatar} alt="" className="w-10 h-10 bg-white rounded-full border-2 border-dark shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]" />
-                                    <div className="w-full">
-                                        <div className="font-black text-sm leading-tight truncate max-w-[120px]">{user.name}</div>
-                                        <div className={`text-[9px] font-bold uppercase px-1.5 py-0.5 mt-1 inline-block border border-dark ${user.group === 'Groupe Matin' ? 'bg-white text-dark' : 'bg-dark text-neon'}`}>
-                                            {user.group}
-                                        </div>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={(e) => confirmDeleteUser(e, user.id)}
-                                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all duration-200 w-8 h-8 flex items-center justify-center border-2 border-dark bg-white text-gray-400 hover:bg-alert hover:text-white hover:shadow-neo-sm hover:-translate-y-0.5"
-                                    title="Supprimer le membre"
-                                >
-                                    <Trash2 size={16} strokeWidth={3} />
-                                </button>
-                            </div>
-                          </td>
+                          </th>
+
                           {DATE_CONFIG.dates.map(date => {
                             const isSpecialDay = ['ven.'].includes(formatDayName(date).toLowerCase());
                             return (
-                                <td key={date} className={`p-2 text-center border-r border-gray-100 ${isSpecialDay ? 'bg-gray-50/50' : ''}`}>
-                                <div className="flex justify-center">
-                                    <AttendanceCell 
-                                        date={formatDate(date)}
-                                        record={user.attendance[date]}
-                                        onChange={(status, just) => handleAttendanceChange(user.id, date, status, just)}
-                                    />
+                              <th key={date} className="p-2 align-bottom min-w-[110px]">
+                                <div
+                                  className={`flex flex-col glass rounded-glass transition-all duration-300 group cursor-default overflow-hidden border border-white/10 ${
+                                    isSpecialDay ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20' : 'hover:-translate-y-1 hover:shadow-glass'
+                                  }`}
+                                >
+                                  <div
+                                    className={`text-xs font-bold uppercase py-2 tracking-wider backdrop-blur-glass ${
+                                      isSpecialDay ? 'bg-gradient-to-r from-purple-500/40 to-pink-500/40 text-white' : 'bg-white/5 text-white/80'
+                                    }`}
+                                  >
+                                    {formatDayName(date)}
+                                  </div>
+
+                                  <div className="py-3 px-2 flex flex-col items-center justify-center gap-1 relative">
+                                    <CalendarDays size={14} className="text-white/30 absolute top-1 right-1" />
+                                    <span className="text-xl font-bold text-white leading-none">
+                                      {formatDate(date).split('/')[0]}
+                                    </span>
+                                    <span className="text-xs font-medium text-white/50">
+                                      /{formatDate(date).split('/')[1]}
+                                    </span>
+                                  </div>
                                 </div>
-                                </td>
+                              </th>
                             );
                           })}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  
+                      </thead>
+                      <tbody>
+                        {filteredUsers.map(user => (
+                          <tr key={user.id} className="group hover:bg-white/5 transition-all duration-200 border-b border-white/5">
+                            <td className="sticky left-0 z-[50] glass-dark group-hover:bg-white/10 backdrop-blur-glass border-r border-white/10 p-4 rounded-l-glass">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="relative">
+                                    <img
+                                      src={user.avatar}
+                                      alt=""
+                                      className="w-12 h-12 rounded-full border-2 border-white/20 shadow-glass object-cover"
+                                    />
+                                    <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary-from/20 to-primary-to/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-sm leading-tight text-white truncate max-w-[140px]">{user.name}</div>
+                                    <div
+                                      className={`text-xs font-semibold uppercase px-3 py-1 mt-1.5 inline-block rounded-full border ${
+                                        user.group === 'Groupe Matin'
+                                          ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-cyan-300 border-cyan-400/30'
+                                          : 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-pink-300 border-pink-400/30'
+                                      }`}
+                                    >
+                                      {user.group}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={event => confirmDeleteUser(event, user.id)}
+                                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all duration-300 w-9 h-9 flex items-center justify-center rounded-glass glass border border-white/10 text-white/60 hover:bg-red-500/80 hover:text-white hover:shadow-glass hover:scale-105"
+                                  title="Supprimer le membre"
+                                >
+                                  <Trash2 size={16} strokeWidth={2.5} />
+                                </button>
+                              </div>
+                            </td>
+                            {DATE_CONFIG.dates.map(date => {
+                              const isSpecialDay = ['ven.'].includes(formatDayName(date).toLowerCase());
+                              return (
+                                <td key={date} className={`p-2 text-center border-r border-white/5 ${isSpecialDay ? 'bg-purple-500/5' : ''}`}>
+                                  <div className="flex justify-center">
+                                    <AttendanceCell
+                                      date={formatDate(date)}
+                                      record={user.attendance[date]}
+                                      onChange={(status, just) => handleAttendanceChange(user.id, date, status, just)}
+                                    />
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
                   {users.length === 0 && (
-                    <div className="text-center py-12 font-bold text-gray-400 uppercase tracking-widest">
-                        Aucune donnée disponible
+                    <div className="glass rounded-glass-lg p-10 text-center text-white/70 border border-white/10">
+                      <div className="text-lg font-bold uppercase tracking-widest">Aucune donnée disponible</div>
+                      <div className="text-sm text-white/50 mt-2">Ajoutez un membre pour commencer le suivi.</div>
                     </div>
                   )}
-                  
+
                   {users.length > 0 && filteredUsers.length === 0 && (
-                    <div className="text-center py-12 border-2 border-dashed border-gray-300 m-4 bg-gray-50">
-                        <div className="font-bold text-gray-400 uppercase tracking-widest">Aucun résultat</div>
-                        <div className="text-xs text-gray-400 mt-1">Essayez de modifier les filtres</div>
+                    <div className="glass rounded-glass-lg p-8 text-center border border-white/10">
+                      <div className="text-lg font-bold uppercase tracking-widest text-white/70">Aucun résultat</div>
+                      <div className="text-sm text-white/50 mt-2">Essayez de modifier les filtres.</div>
                     </div>
                   )}
                 </div>
@@ -387,10 +431,10 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
-      
-      <footer className="mt-12 border-t-4 border-dark pt-6 flex justify-between items-center text-xs font-bold uppercase tracking-widest opacity-60">
+
+      <footer className="mt-12 glass-dark rounded-glass-lg p-6 backdrop-blur-glass flex justify-between items-center text-sm font-semibold uppercase tracking-wider text-white/60 border border-white/10">
         <div>© 2025 CORPORATE OS</div>
-        <div>SECURE SYSTEM • v.2.0.4</div>
+        <div>SECURE SYSTEM • v.3.0.0</div>
       </footer>
     </div>
   );
