@@ -1,397 +1,647 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, AttendanceRecord, UserGroup, AttendanceStatus } from './types';
 import { DATE_CONFIG, formatDayName, formatDate, DEFAULT_USERS } from './constants';
-import { NeoCard } from './components/NeoCard';
-import { NeoButton } from './components/NeoButton';
+import { ModernCard } from './components/ModernCard';
+import { SoftButton } from './components/SoftButton';
 import { UserForm } from './components/UserForm';
 import { AttendanceCell } from './components/AttendanceCell';
 import { StatsView } from './components/StatsView';
 import { ConfirmationModal } from './components/ConfirmationModal';
-import { LayoutGrid, List, Download, Filter, UserCircle2, Trash2, CalendarDays } from 'lucide-react';
+import { Toast } from './components/Toast';
+import { SkeletonCard } from './components/SkeletonCard';
+import {
+  LayoutGrid,
+  BarChart3,
+  Download,
+  Filter,
+  UserCircle2,
+  Trash2,
+  CalendarDays,
+  Users,
+  Menu,
+  X,
+  UserPlus
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+const STORAGE_KEY = 'neo-presence-users-v3';
+
+const formatRangeDate = (date: Date) =>
+  new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit' }).format(date);
+
 const App: React.FC = () => {
-  // --- State Management (Reverted from DB) ---
   const [users, setUsers] = useState<User[]>(() => {
-    // Load from local storage if available to prevent data loss on refresh
-    // Changed key to 'v3' to force reload of new default avatars and names
-    const saved = localStorage.getItem('neo-presence-users-v3');
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-        const parsed = JSON.parse(saved);
-        // Simple check to see if it's an empty array from previous cleanups
-        if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-        }
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     }
-    // If no data or empty array, load defaults
     return DEFAULT_USERS;
   });
-  
+
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'PRESENT' | 'ABSENT'>('ALL');
   const [filterGroup, setFilterGroup] = useState<'ALL' | UserGroup>('ALL');
   const [viewMode, setViewMode] = useState<'TABLE' | 'STATS'>('TABLE');
-  
-  // State for deletion modal
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Save to local storage whenever users change
   useEffect(() => {
-    localStorage.setItem('neo-presence-users-v3', JSON.stringify(users));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
   }, [users]);
 
-  const handleAddUser = (name: string, group: UserGroup) => {
-    const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: name.toUpperCase(),
-      group: group,
-      // Generate a consistent avatar style for new users
-      avatar: `https://avatar.iran.liara.run/public?username=${name.replace(/\s/g, '')}`,
-      attendance: {}
-    };
-    setUsers(prev => [...prev, newUser]);
+  useEffect(() => {
+    const timeout = setTimeout(() => setIsLoaded(true), 150);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    setToast({ message, type });
   };
 
-  // Triggered when trash button is clicked
+  const handleAddUser = (name: string, group: UserGroup) => {
+    const cleanName = name.trim();
+    if (!cleanName) return;
+
+    const newUser: User = {
+      id: Math.random().toString(36).slice(2, 11),
+      name: cleanName,
+      group,
+      avatar: `https://avatar.iran.liara.run/public?username=${cleanName.replace(/\s/g, '')}`,
+      attendance: {}
+    };
+
+    setUsers((prev) => [...prev, newUser]);
+    showToast(`${cleanName} ajouté avec succès !`);
+  };
+
   const confirmDeleteUser = (e: React.MouseEvent, userId: string) => {
-    e.stopPropagation(); // Prevent any parent handlers from firing
+    e.stopPropagation();
     setUserToDelete(userId);
   };
 
-  // Triggered when confirming in modal
   const executeDelete = () => {
     if (userToDelete) {
-        setUsers(prev => prev.filter(u => u.id !== userToDelete));
-        setUserToDelete(null);
+      setUsers((prev) => prev.filter((user) => user.id !== userToDelete));
+      setUserToDelete(null);
+      showToast('Membre supprimé', 'warning');
     }
   };
 
-  const handleAttendanceChange = (userId: string, date: string, status: AttendanceStatus, justification?: string) => {
-    setUsers(prev => prev.map(user => {
-        if (user.id === userId) {
-            return {
-                ...user,
-                attendance: {
-                    ...user.attendance,
-                    [date]: { date, status, justification }
-                }
-            };
-        }
-        return user;
-    }));
+  const handleAttendanceChange = (
+    userId: string,
+    date: string,
+    status: AttendanceStatus,
+    justification?: string
+  ) => {
+    setUsers((prev) =>
+      prev.map((user) => {
+        if (user.id !== userId) return user;
+        return {
+          ...user,
+          attendance: {
+            ...user.attendance,
+            [date]: { date, status, justification }
+          }
+        };
+      })
+    );
+
+    if (status === 'PRESENT') {
+      showToast('Présence enregistrée');
+    } else if (status === 'ABSENT') {
+      showToast(
+        `Absence enregistrée${justification ? ` · ${justification}` : ''}`,
+        'warning'
+      );
+    } else {
+      showToast('Statut réinitialisé', 'warning');
+    }
   };
 
   const filteredUsers = useMemo(() => {
-    return users.filter(user => {
-        // 1. Group Filter
-        const matchesGroup = filterGroup === 'ALL' || user.group === filterGroup;
+    return users.filter((user) => {
+      const matchesGroup = filterGroup === 'ALL' || user.group === filterGroup;
 
-        // 2. Status Filter
-        let matchesStatus = true;
-        if (filterStatus === 'ABSENT') {
-            matchesStatus = Object.values(user.attendance).some((r: AttendanceRecord) => r.status === 'ABSENT');
-        } else if (filterStatus === 'PRESENT') {
-            matchesStatus = Object.values(user.attendance).some((r: AttendanceRecord) => r.status === 'PRESENT');
-        }
+      let matchesStatus = true;
+      if (filterStatus === 'ABSENT') {
+        matchesStatus = Object.values(user.attendance).some(
+          (record: AttendanceRecord) => record.status === 'ABSENT'
+        );
+      } else if (filterStatus === 'PRESENT') {
+        matchesStatus = Object.values(user.attendance).some(
+          (record: AttendanceRecord) => record.status === 'PRESENT'
+        );
+      }
 
-        return matchesGroup && matchesStatus;
+      return matchesGroup && matchesStatus;
     });
   }, [users, filterStatus, filterGroup]);
 
-  const exportXLSX = () => {
-    // 1. Define Headers
-    const dateHeaders = DATE_CONFIG.dates.map(date => `${formatDayName(date)} ${formatDate(date)}`);
-    const headers = ['NOM', 'GROUPE', ...dateHeaders, 'TOTAL PRÉSENCE', 'TAUX'];
+  const exportToExcel = () => {
+    const dateHeaders = DATE_CONFIG.dates.map((date) => `${formatDayName(date)} ${formatDate(date)}`);
+    const headers = ['Nom', 'Groupe', ...dateHeaders, 'Total présence', 'Taux'];
 
-    // 2. Prepare Data
-    const rows = users.map(user => {
-        const row: Record<string, string | number> = {
-            'NOM': user.name,
-            'GROUPE': user.group,
-        };
+    const rows = users.map((user) => {
+      const row: Record<string, string | number> = {
+        Nom: user.name,
+        Groupe: user.group
+      };
 
-        DATE_CONFIG.dates.forEach((date, index) => {
-            const headerKey = dateHeaders[index];
-            const record: AttendanceRecord | undefined = user.attendance[date];
-            
-            if (!record) {
-                row[headerKey] = '';
-            } else if (record.status === 'PRESENT') {
-                row[headerKey] = 'PRÉSENT';
-            } else if (record.status === 'ABSENT') {
-                row[headerKey] = `ABSENT${record.justification ? ` (${record.justification})` : ''}`;
-            } else {
-                row[headerKey] = '?';
-            }
-        });
+      DATE_CONFIG.dates.forEach((date, index) => {
+        const headerKey = dateHeaders[index];
+        const record: AttendanceRecord | undefined = user.attendance[date];
+        if (!record) {
+          row[headerKey] = '';
+          return;
+        }
 
-        // Stats
-        const presentCount = Object.values(user.attendance).filter((r: AttendanceRecord) => r.status === 'PRESENT').length;
-        const totalPossible = DATE_CONFIG.dates.length;
-        row['TOTAL PRÉSENCE'] = `${presentCount} / ${totalPossible}`;
-        row['TAUX'] = Math.round((presentCount / totalPossible) * 100) + '%';
+        if (record.status === 'PRESENT') {
+          row[headerKey] = 'Présent';
+        } else if (record.status === 'ABSENT') {
+          row[headerKey] = `Absent${record.justification ? ` (${record.justification})` : ''}`;
+        } else {
+          row[headerKey] = 'En attente';
+        }
+      });
 
-        return row;
+      const presentCount = Object.values(user.attendance).filter(
+        (record: AttendanceRecord) => record.status === 'PRESENT'
+      ).length;
+      const totalPossible = DATE_CONFIG.dates.length;
+
+      row['Total présence'] = `${presentCount} / ${totalPossible}`;
+      row['Taux'] = totalPossible > 0 ? `${Math.round((presentCount / totalPossible) * 100)}%` : '0%';
+
+      return row;
     });
 
-    // 3. Create Worksheet with explicit header order
     const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
-
-    // 4. Adjust Column Widths
-    const colWidths = [
-        { wch: 25 }, // Nom
-        { wch: 15 }, // Groupe
+    const columnWidths = [
+      { wch: 28 },
+      { wch: 16 },
+      ...DATE_CONFIG.dates.map(() => ({ wch: 18 })),
+      { wch: 18 },
+      { wch: 10 }
     ];
-    // Dates
-    DATE_CONFIG.dates.forEach(() => colWidths.push({ wch: 15 }));
-    // Stats
-    colWidths.push({ wch: 15 }, { wch: 10 });
+    worksheet['!cols'] = columnWidths;
 
-    worksheet['!cols'] = colWidths;
-
-    // 5. Create Workbook and Export
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Suivi Présences");
-    
-    XLSX.writeFile(workbook, "presence_neo_track.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Suivi Présence');
+    XLSX.writeFile(workbook, 'presence-tracker.xlsx');
+    showToast('Export Excel généré', 'success');
+  };
+
+  const scrollToForm = () => {
+    const form = document.getElementById('user-form');
+    form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-[#e0e0e0] text-dark font-sans selection:bg-neon selection:text-dark">
-      {/* Confirmation Modal */}
-      <ConfirmationModal 
+    <div className="min-h-screen px-4 py-8 md:px-10 md:py-12 text-charcoal-800">
+      <ConfirmationModal
         isOpen={!!userToDelete}
-        title="SUPPRESSION DÉFINITIVE"
-        message="Êtes-vous sûr de vouloir supprimer ce membre ? Toutes les données de présence associées seront perdues."
+        title="Supprimer le membre"
+        message="Êtes-vous sûr de vouloir supprimer ce membre ? Toutes ses données de présence seront perdues définitivement."
         onConfirm={executeDelete}
         onCancel={() => setUserToDelete(null)}
       />
 
-      {/* Header */}
-      <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div>
-            <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-2" style={{ textShadow: '4px 4px 0px #fff' }}>
-            PRESENCE<span className="text-neon stroke-black" style={{ WebkitTextStroke: '2px black' }}>.TRACKER</span>
-            </h1>
-            <div className="bg-dark text-white inline-block px-4 py-2 font-bold font-mono transform -rotate-2">
-            PÉRIODE : 22/11/2025 → 06/12/2025
-            </div>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {!isLoaded && (
+        <div className="max-w-7xl mx-auto space-y-6">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
-        
-        <div className="flex gap-4 flex-wrap">
-            <NeoButton onClick={() => setViewMode('TABLE')} variant={viewMode === 'TABLE' ? 'primary' : 'secondary'} icon={<List size={20} />}>
-                TABLEAU
-            </NeoButton>
-            <NeoButton onClick={() => setViewMode('STATS')} variant={viewMode === 'STATS' ? 'primary' : 'secondary'} icon={<LayoutGrid size={20} />}>
-                STATS
-            </NeoButton>
-            <NeoButton onClick={exportXLSX} variant="secondary" icon={<Download size={20} />}>
-                XLSX
-            </NeoButton>
-        </div>
-      </header>
+      )}
 
-      {/* Main Content */}
-      <main className="space-y-8">
-        
-        {/* Stats Summary visible everywhere */}
-        {viewMode === 'STATS' && (
-             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <StatsView users={users} />
-             </div>
-        )}
+      <main
+        className={`max-w-7xl mx-auto space-y-12 transition-opacity duration-700 ${
+          isLoaded ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <header className="mb-4 animate-fade-in">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 w-full">
+            <div className="flex-1">
+              <div className="flex items-center justify-between w-full md:hidden">
+                <div>
+                  <h1 className="text-3xl font-bold text-charcoal-800 mb-1">
+                    Gestion de{' '}
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-golden-500 to-golden-600">
+                      présence
+                    </span>
+                  </h1>
+                  <p className="text-sm text-neutral-500">Suivi quotidien des équipes</p>
+                </div>
+                <button
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="p-2 rounded-lg hover:bg-cream-100 transition-colors"
+                  aria-label="Ouvrir le menu"
+                >
+                  <Menu size={24} className="text-charcoal-800" />
+                </button>
+              </div>
 
-        {viewMode === 'TABLE' && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Left Column: Add User */}
-            <div className="lg:col-span-1">
-              <UserForm onAddUser={handleAddUser} />
+              <div className="hidden md:block">
+                <h1 className="text-4xl md:text-5xl font-bold text-charcoal-800 mb-2">
+                  Gestion de{' '}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-golden-500 to-golden-600">
+                    présence
+                  </span>
+                </h1>
+                <div className="text-neutral-500">Suivi quotidien des équipes</div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-sm mt-4 md:mt-6">
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-golden-50 to-golden-100 border border-golden-300 text-golden-700 rounded-badge font-semibold shadow-soft">
+                  <CalendarDays size={16} />
+                  {formatRangeDate(DATE_CONFIG.start)} - {formatRangeDate(DATE_CONFIG.end)}
+                </span>
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-cream-200 text-neutral-600 rounded-badge font-medium shadow-soft">
+                  <Users size={16} />
+                  {users.length} membres
+                </span>
+              </div>
             </div>
 
-            {/* Right Column: Table */}
-            <div className="lg:col-span-3">
-              <NeoCard className="" title="FEUILLE D'ÉMARGEMENT">
-                
-                {/* Filters */}
-                <div className="mb-6 flex flex-col md:flex-row md:items-center gap-6 border-b-2 border-gray-200 pb-6">
-                    <div className="flex items-center gap-2 text-gray-400">
-                        <Filter size={20} />
-                        <span className="font-black text-sm uppercase">FILTRES</span>
-                    </div>
+            <div className="hidden md:flex flex-wrap gap-3">
+              <SoftButton
+                variant={viewMode === 'TABLE' ? 'primary' : 'outline'}
+                size="md"
+                icon={<LayoutGrid size={20} />}
+                onClick={() => setViewMode('TABLE')}
+              >
+                Tableau
+              </SoftButton>
+              <SoftButton
+                variant={viewMode === 'STATS' ? 'primary' : 'outline'}
+                size="md"
+                icon={<BarChart3 size={20} />}
+                onClick={() => setViewMode('STATS')}
+              >
+                Statistiques
+              </SoftButton>
+              <SoftButton variant="secondary" size="md" icon={<Download size={20} />} onClick={exportToExcel}>
+                Exporter
+              </SoftButton>
+            </div>
+          </div>
+        </header>
 
-                    {/* Group Filter */}
-                    <div className="flex items-center gap-2">
-                         <span className="text-xs font-bold uppercase mr-1">Groupe:</span>
-                         <div className="flex gap-1">
-                             <button 
-                                onClick={() => setFilterGroup('ALL')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterGroup === 'ALL' ? 'bg-dark text-white shadow-neo-sm' : 'bg-white hover:bg-gray-100'}`}
-                             >
-                                Tous
-                             </button>
-                             <button 
-                                onClick={() => setFilterGroup('Groupe Matin')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterGroup === 'Groupe Matin' ? 'bg-white text-dark shadow-neo-sm' : 'bg-white hover:bg-gray-100 opacity-60 hover:opacity-100'}`}
-                             >
-                                Matin
-                             </button>
-                             <button 
-                                onClick={() => setFilterGroup('Groupe Soir')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterGroup === 'Groupe Soir' ? 'bg-dark text-neon shadow-neo-sm' : 'bg-white hover:bg-gray-100 opacity-60 hover:opacity-100'}`}
-                             >
-                                Soir
-                             </button>
-                         </div>
-                    </div>
-
-                    {/* Separator */}
-                    <div className="hidden md:block w-px h-8 bg-gray-300"></div>
-
-                    {/* Status Filter */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold uppercase mr-1">Statut:</span>
-                        <div className="flex gap-1">
-                            <button 
-                                onClick={() => setFilterStatus('ALL')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterStatus === 'ALL' ? 'bg-dark text-white shadow-neo-sm' : 'bg-white hover:bg-gray-100'}`}
-                            >
-                                Tous
-                            </button>
-                            <button 
-                                onClick={() => setFilterStatus('PRESENT')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterStatus === 'PRESENT' ? 'bg-neon text-dark shadow-neo-sm' : 'bg-white hover:bg-gray-100'}`}
-                            >
-                                Présent
-                            </button>
-                            <button 
-                                onClick={() => setFilterStatus('ABSENT')}
-                                className={`px-2 py-1 text-[10px] font-bold uppercase border-2 border-dark transition-all ${filterStatus === 'ABSENT' ? 'bg-alert text-white shadow-neo-sm' : 'bg-white hover:bg-gray-100'}`}
-                            >
-                                Absent
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto pb-4">
-                  <table className="w-full border-collapse border-spacing-0">
-                    <thead>
-                      <tr>
-                        {/* Sticky Name Header */}
-                        <th className="sticky left-0 z-[60] bg-white p-0 align-bottom border-b-4 border-dark min-w-[260px]">
-                            <div className="flex items-center gap-3 p-4 border-r-2 border-dark bg-dark text-white h-full relative overflow-hidden group">
-                                {/* Background Pattern */}
-                                <div className="absolute inset-0 opacity-10 pattern-diagonal pointer-events-none"></div>
-                                
-                                <div className="relative z-10 p-2 bg-neon border-2 border-white text-dark shadow-[3px_3px_0px_rgba(255,255,255,0.3)] rounded-none">
-                                    <UserCircle2 size={24} />
-                                </div>
-                                <div className="flex flex-col z-10">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">LISTE DES</span>
-                                    <span className="text-lg font-black uppercase tracking-tight leading-none">MEMBRES</span>
-                                </div>
-                            </div>
-                        </th>
-                        
-                        {/* Dates Headers */}
-                        {DATE_CONFIG.dates.map(date => {
-                            // Highlights Fridays only
-                            const isSpecialDay = ['ven.'].includes(formatDayName(date).toLowerCase());
-                            return (
-                              <th key={date} className="p-2 align-bottom border-b-4 border-dark min-w-[110px] bg-white">
-                                <div className={`
-                                    flex flex-col border-2 border-dark transition-all duration-200 group cursor-default
-                                    ${isSpecialDay ? 'bg-gray-100 shadow-[3px_3px_0px_#2C2C2C]' : 'bg-white hover:-translate-y-1 shadow-[3px_3px_0px_#39FF14]'}
-                                `}>
-                                    {/* Day Name */}
-                                    <div className={`
-                                        text-[10px] font-black uppercase py-1 border-b-2 border-dark tracking-wider
-                                        ${isSpecialDay ? 'bg-dark text-white' : 'bg-gray-100 text-dark'}
-                                    `}>
-                                        {formatDayName(date)}
-                                    </div>
-                                    
-                                    {/* Date Number */}
-                                    <div className="py-2 px-1 flex flex-col items-center justify-center gap-1 relative overflow-hidden">
-                                        <CalendarDays size={14} className="text-gray-400 opacity-50 absolute top-1 right-1" />
-                                        <span className="text-lg font-black text-dark leading-none">
-                                            {formatDate(date).split('/')[0]}
-                                        </span>
-                                        <span className="text-[10px] font-bold text-gray-500 bg-white px-1 -mt-1">
-                                            /{formatDate(date).split('/')[1]}
-                                        </span>
-                                    </div>
-                                </div>
-                              </th>
-                            );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredUsers.map((user, idx) => (
-                        <tr key={user.id} className={`group hover:bg-gray-50 transition-colors border-b border-gray-200`}>
-                          <td className="sticky left-0 z-[50] bg-white group-hover:bg-gray-50 border-r-2 border-dark p-3">
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-3">
-                                    <img src={user.avatar} alt="" className="w-10 h-10 bg-white rounded-full border-2 border-dark shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]" />
-                                    <div className="w-full">
-                                        <div className="font-black text-sm leading-tight truncate max-w-[120px]">{user.name}</div>
-                                        <div className={`text-[9px] font-bold uppercase px-1.5 py-0.5 mt-1 inline-block border border-dark ${user.group === 'Groupe Matin' ? 'bg-white text-dark' : 'bg-dark text-neon'}`}>
-                                            {user.group}
-                                        </div>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={(e) => confirmDeleteUser(e, user.id)}
-                                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all duration-200 w-8 h-8 flex items-center justify-center border-2 border-dark bg-white text-gray-400 hover:bg-alert hover:text-white hover:shadow-neo-sm hover:-translate-y-0.5"
-                                    title="Supprimer le membre"
-                                >
-                                    <Trash2 size={16} strokeWidth={3} />
-                                </button>
-                            </div>
-                          </td>
-                          {DATE_CONFIG.dates.map(date => {
-                            const isSpecialDay = ['ven.'].includes(formatDayName(date).toLowerCase());
-                            return (
-                                <td key={date} className={`p-2 text-center border-r border-gray-100 ${isSpecialDay ? 'bg-gray-50/50' : ''}`}>
-                                <div className="flex justify-center">
-                                    <AttendanceCell 
-                                        date={formatDate(date)}
-                                        record={user.attendance[date]}
-                                        onChange={(status, just) => handleAttendanceChange(user.id, date, status, just)}
-                                    />
-                                </div>
-                                </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  
-                  {users.length === 0 && (
-                    <div className="text-center py-12 font-bold text-gray-400 uppercase tracking-widest">
-                        Aucune donnée disponible
-                    </div>
-                  )}
-                  
-                  {users.length > 0 && filteredUsers.length === 0 && (
-                    <div className="text-center py-12 border-2 border-dashed border-gray-300 m-4 bg-gray-50">
-                        <div className="font-bold text-gray-400 uppercase tracking-widest">Aucun résultat</div>
-                        <div className="text-xs text-gray-400 mt-1">Essayez de modifier les filtres</div>
-                    </div>
-                  )}
-                </div>
-              </NeoCard>
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-40 md:hidden animate-fade-in">
+            <div
+              className="absolute inset-0 bg-charcoal-900/60 backdrop-blur-md"
+              onClick={() => setMobileMenuOpen(false)}
+            ></div>
+            <div className="relative bg-white h-full w-72 shadow-soft-xl p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-charcoal-800">Navigation</h2>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2 rounded-lg hover:bg-cream-100 transition-colors"
+                  aria-label="Fermer le menu"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <SoftButton
+                variant={viewMode === 'TABLE' ? 'primary' : 'outline'}
+                fullWidth
+                icon={<LayoutGrid size={18} />}
+                onClick={() => {
+                  setViewMode('TABLE');
+                  setMobileMenuOpen(false);
+                }}
+              >
+                Tableau
+              </SoftButton>
+              <SoftButton
+                variant={viewMode === 'STATS' ? 'primary' : 'outline'}
+                fullWidth
+                icon={<BarChart3 size={18} />}
+                onClick={() => {
+                  setViewMode('STATS');
+                  setMobileMenuOpen(false);
+                }}
+              >
+                Statistiques
+              </SoftButton>
+              <SoftButton
+                variant="secondary"
+                fullWidth
+                icon={<Download size={18} />}
+                onClick={() => {
+                  exportToExcel();
+                  setMobileMenuOpen(false);
+                }}
+              >
+                Exporter en Excel
+              </SoftButton>
             </div>
           </div>
         )}
+
+        {viewMode === 'TABLE' && (
+          <section className="space-y-8 animate-fade-in">
+            <ModernCard variant="glass">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                <div className="flex items-center gap-2 text-neutral-600">
+                  <Filter size={20} />
+                  <span className="font-semibold">Filtres :</span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFilterGroup('ALL')}
+                    className={`px-4 py-2 rounded-badge text-sm font-semibold transition-all duration-200 ${
+                      filterGroup === 'ALL'
+                        ? 'bg-golden-500 text-white shadow-soft'
+                        : 'bg-white border border-cream-200 text-neutral-600 hover:border-golden-300'
+                    }`}
+                  >
+                    Tous
+                  </button>
+                  <button
+                    onClick={() => setFilterGroup('Groupe Matin')}
+                    className={`px-4 py-2 rounded-badge text-sm font-semibold transition-all duration-200 ${
+                      filterGroup === 'Groupe Matin'
+                        ? 'bg-golden-500 text-white shadow-soft'
+                        : 'bg-white border border-cream-200 text-neutral-600 hover:border-golden-300'
+                    }`}
+                  >
+                    🌅 Matin
+                  </button>
+                  <button
+                    onClick={() => setFilterGroup('Groupe Soir')}
+                    className={`px-4 py-2 rounded-badge text-sm font-semibold transition-all duration-200 ${
+                      filterGroup === 'Groupe Soir'
+                        ? 'bg-golden-500 text-white shadow-soft'
+                        : 'bg-white border border-cream-200 text-neutral-600 hover:border-golden-300'
+                    }`}
+                  >
+                    🌙 Soir
+                  </button>
+                </div>
+
+                <div className="hidden sm:block h-8 w-px bg-cream-200"></div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFilterStatus('ALL')}
+                    className={`px-4 py-2 rounded-badge text-sm font-semibold transition-all duration-200 ${
+                      filterStatus === 'ALL'
+                        ? 'bg-charcoal-800 text-white shadow-soft'
+                        : 'bg-white border border-cream-200 text-neutral-600 hover:border-charcoal-300'
+                    }`}
+                  >
+                    Tous
+                  </button>
+                  <button
+                    onClick={() => setFilterStatus('PRESENT')}
+                    className={`px-4 py-2 rounded-badge text-sm font-semibold transition-all duration-200 ${
+                      filterStatus === 'PRESENT'
+                        ? 'bg-success-500 text-white shadow-soft'
+                        : 'bg-white border border-cream-200 text-neutral-600 hover:border-success-300'
+                    }`}
+                  >
+                    ✓ Présents
+                  </button>
+                  <button
+                    onClick={() => setFilterStatus('ABSENT')}
+                    className={`px-4 py-2 rounded-badge text-sm font-semibold transition-all duration-200 ${
+                      filterStatus === 'ABSENT'
+                        ? 'bg-alert-500 text-white shadow-soft'
+                        : 'bg-white border border-cream-200 text-neutral-600 hover:border-alert-300'
+                    }`}
+                  >
+                    ✗ Absents
+                  </button>
+                </div>
+              </div>
+            </ModernCard>
+
+            {!isLoaded ? (
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <SkeletonCard />
+                <div className="lg:col-span-3 space-y-4">
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div id="user-form" className="lg:col-span-1">
+                  <UserForm onAddUser={handleAddUser} />
+                </div>
+
+                <div className="lg:col-span-3">
+                  <ModernCard
+                    title="Feuille d'émargement"
+                    subtitle={`${filteredUsers.length} membre${
+                      filteredUsers.length > 1 ? 's' : ''
+                    } affiché${filteredUsers.length > 1 ? 's' : ''}`}
+                  >
+                    {filteredUsers.length > 0 ? (
+                      <>
+                        <div className="hidden md:block overflow-x-auto">
+                          <table className="w-full border-collapse">
+                            <thead className="bg-cream-100 sticky top-0 z-10">
+                              <tr>
+                                <th className="sticky left-0 bg-cream-100 px-6 py-4 text-left border-r border-cream-200 shadow-soft-md z-20">
+                                  <div className="flex items-center gap-2">
+                                    <UserCircle2 size={18} className="text-golden-600" />
+                                    <span className="text-sm font-bold text-charcoal-800 uppercase tracking-wider">
+                                      Membre
+                                    </span>
+                                  </div>
+                                </th>
+                                {DATE_CONFIG.dates.map((date) => (
+                                  <th key={date} className="px-3 py-4 text-center border-l border-cream-200 min-w-[60px]">
+                                    <div className="text-xs font-semibold text-neutral-600 uppercase tracking-wide">
+                                      {formatDayName(date)}
+                                    </div>
+                                    <div className="text-sm font-bold text-charcoal-800 mt-1">
+                                      {new Date(date).getDate()}
+                                    </div>
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredUsers.map((user) => (
+                                <tr
+                                  key={user.id}
+                                  className="group border-t border-cream-200 hover:bg-cream-50 transition-colors duration-150"
+                                >
+                                  <td className="sticky left-0 bg-white group-hover:bg-cream-50 px-6 py-4 border-r border-cream-200 shadow-soft-md z-10">
+                                    <div className="flex items-center gap-3">
+                                      <img
+                                        src={user.avatar}
+                                        alt={user.name}
+                                        className="w-10 h-10 rounded-full border-2 border-golden-400 object-cover shadow-soft"
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-semibold text-charcoal-800 text-sm truncate">
+                                          {user.name}
+                                        </div>
+                                        <div
+                                          className={`text-xs font-medium px-2 py-0.5 rounded-badge inline-block mt-1 ${
+                                            user.group === 'Groupe Matin'
+                                              ? 'bg-golden-100 text-golden-700'
+                                              : 'bg-charcoal-800 text-golden-400'
+                                          }`}
+                                        >
+                                          {user.group === 'Groupe Matin' ? '🌅 Matin' : '🌙 Soir'}
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={(e) => confirmDeleteUser(e, user.id)}
+                                        className="p-2 text-alert-500 hover:bg-alert-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                        aria-label="Supprimer le membre"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                  {DATE_CONFIG.dates.map((date) => (
+                                    <td key={date} className="px-2 py-2 text-center border-l border-cream-200">
+                                      <div className="flex justify-center">
+                                        <AttendanceCell
+                                          date={date}
+                                          record={user.attendance[date]}
+                                          onChange={(status, justification) =>
+                                            handleAttendanceChange(user.id, date, status, justification)
+                                          }
+                                        />
+                                      </div>
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="md:hidden space-y-4">
+                          {filteredUsers.map((user) => (
+                            <div
+                              key={user.id}
+                              className="rounded-card border border-cream-200 bg-white shadow-soft p-4 space-y-4"
+                            >
+                              <div className="flex items-start gap-3">
+                                <img
+                                  src={user.avatar}
+                                  alt={user.name}
+                                  className="w-12 h-12 rounded-full border-2 border-golden-400 object-cover shadow-soft"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div>
+                                      <div className="font-semibold text-charcoal-800 truncate">
+                                        {user.name}
+                                      </div>
+                                      <div
+                                        className={`text-xs font-medium px-2 py-0.5 rounded-badge inline-block mt-1 ${
+                                          user.group === 'Groupe Matin'
+                                            ? 'bg-golden-100 text-golden-700'
+                                            : 'bg-charcoal-800 text-golden-400'
+                                        }`}
+                                      >
+                                        {user.group === 'Groupe Matin' ? '🌅 Matin' : '🌙 Soir'}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={(e) => confirmDeleteUser(e, user.id)}
+                                      className="p-2 text-alert-500 hover:bg-alert-50 rounded-lg transition-colors"
+                                      aria-label="Supprimer le membre"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-5 gap-2">
+                                {DATE_CONFIG.dates.slice(0, 10).map((date) => (
+                                  <AttendanceCell
+                                    key={date}
+                                    date={date}
+                                    record={user.attendance[date]}
+                                    onChange={(status, justification) =>
+                                      handleAttendanceChange(user.id, date, status, justification)
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-16">
+                        <div className="inline-flex items-center justify-center w-20 h-20 bg-cream-100 rounded-full mb-6">
+                          <Users size={40} className="text-neutral-400" />
+                        </div>
+                        <h3 className="text-xl font-semibold text-charcoal-800 mb-2">
+                          Aucun membre trouvé
+                        </h3>
+                        <p className="text-neutral-500 mb-6">
+                          Commencez par ajouter des membres à votre équipe ou ajustez vos filtres.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <SoftButton
+                            variant="primary"
+                            icon={<UserPlus size={20} />}
+                            onClick={scrollToForm}
+                          >
+                            Ajouter un membre
+                          </SoftButton>
+                          <SoftButton
+                            variant="outline"
+                            onClick={() => {
+                              setFilterGroup('ALL');
+                              setFilterStatus('ALL');
+                            }}
+                          >
+                            Réinitialiser les filtres
+                          </SoftButton>
+                        </div>
+                      </div>
+                    )}
+                  </ModernCard>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {viewMode === 'STATS' && (
+          <section className="animate-fade-in">
+            {isLoaded ? <StatsView users={users} /> : <SkeletonCard />}
+          </section>
+        )}
+
+        <footer className="mt-12 pt-8 border-t border-cream-200">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-neutral-500">
+            <p className="font-medium">© 2025 Presence Tracker · Fait avec ❤️</p>
+            <div className="flex items-center gap-4 text-xs">
+              <span className="px-3 py-1 bg-cream-100 rounded-badge font-mono">v3.0.0</span>
+              <a href="#" className="hover:text-golden-600 transition-colors">
+                Documentation
+              </a>
+              <a href="#" className="hover:text-golden-600 transition-colors">
+                Support
+              </a>
+            </div>
+          </div>
+        </footer>
       </main>
-      
-      <footer className="mt-12 border-t-4 border-dark pt-6 flex justify-between items-center text-xs font-bold uppercase tracking-widest opacity-60">
-        <div>© 2025 CORPORATE OS</div>
-        <div>SECURE SYSTEM • v.2.0.4</div>
-      </footer>
     </div>
   );
 };

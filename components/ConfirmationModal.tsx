@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { NeoButton } from './NeoButton';
+import { SoftButton } from './SoftButton';
 import { AlertTriangle, X } from 'lucide-react';
 
 interface ConfirmationModalProps {
@@ -22,48 +21,37 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-dark/80 backdrop-blur-sm"
-        onClick={onCancel}
-      ></div>
+      <div className="absolute inset-0 bg-charcoal-900/60 backdrop-blur-md" onClick={onCancel}></div>
 
-      {/* Modal Content */}
-      <div className="relative bg-white border-4 border-dark shadow-neo-lg p-8 max-w-md w-full animate-in zoom-in-95 duration-200">
-        <div className="absolute -top-6 -left-6 bg-alert text-white p-3 border-2 border-dark shadow-neo">
-            <AlertTriangle size={32} strokeWidth={2.5} />
-        </div>
-
-        <button 
-            onClick={onCancel}
-            className="absolute top-2 right-2 p-1 hover:bg-gray-100 border-2 border-transparent hover:border-dark transition-all"
+      <div className="relative bg-white rounded-card shadow-soft-xl p-8 max-w-md w-full animate-fade-in">
+        <button
+          onClick={onCancel}
+          className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-charcoal-800 hover:bg-cream-100 rounded-full transition-colors"
+          aria-label="Fermer"
         >
-            <X size={24} />
+          <X size={20} />
         </button>
 
-        <h2 className="text-2xl font-black uppercase mb-4 mt-2 leading-none text-alert">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="p-3 bg-gradient-to-br from-alert-400 to-alert-600 text-white rounded-2xl shadow-soft-md">
+            <AlertTriangle size={32} strokeWidth={2} />
+          </div>
+          <h2 className="text-2xl font-bold text-charcoal-800">
             {title}
-        </h2>
-        
-        <p className="text-dark font-bold text-lg mb-8 leading-relaxed border-l-4 border-gray-200 pl-4">
-            {message}
+          </h2>
+        </div>
+
+        <p className="text-neutral-600 text-base leading-relaxed mb-8">
+          {message}
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-            <NeoButton 
-                onClick={onCancel} 
-                variant="secondary" 
-                className="flex-1"
-            >
-                ANNULER
-            </NeoButton>
-            <NeoButton 
-                onClick={onConfirm} 
-                variant="danger" 
-                className="flex-1"
-            >
-                CONFIRMER
-            </NeoButton>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <SoftButton onClick={onCancel} variant="outline" size="md" className="flex-1">
+            Annuler
+          </SoftButton>
+          <SoftButton onClick={onConfirm} variant="danger" size="md" className="flex-1">
+            Confirmer
+          </SoftButton>
         </div>
       </div>
     </div>

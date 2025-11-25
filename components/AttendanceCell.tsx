@@ -1,13 +1,26 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AttendanceRecord, JUSTIFICATIONS, AttendanceStatus } from '../types';
 import { Check, X, MessageSquare, Minus } from 'lucide-react';
+import { SoftButton } from './SoftButton';
 
 interface AttendanceCellProps {
   date: string;
   record: AttendanceRecord | undefined;
   onChange: (status: AttendanceStatus, justification?: string) => void;
 }
+
+const formatDisplayDate = (dateStr: string) => {
+  const dateObj = new Date(dateStr);
+  if (Number.isNaN(dateObj.getTime())) {
+    return dateStr;
+  }
+
+  return dateObj.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+};
 
 export const AttendanceCell: React.FC<AttendanceCellProps> = ({ date, record, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,11 +30,13 @@ export const AttendanceCell: React.FC<AttendanceCellProps> = ({ date, record, on
   const status = record?.status || 'PENDING';
   const justification = record?.justification;
 
-  // Close menu on scroll to prevent floating menu mismatch
+  const displayDate = useMemo(() => formatDisplayDate(date), [date]);
+
   useEffect(() => {
     const handleScroll = () => {
       if (isOpen) setIsOpen(false);
     };
+
     window.addEventListener('scroll', handleScroll, true);
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, [isOpen]);
@@ -35,20 +50,11 @@ export const AttendanceCell: React.FC<AttendanceCellProps> = ({ date, record, on
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       const windowHeight = window.innerHeight;
-      const menuHeightEstimate = 350; // Increased estimate for buttons
+      const menuHeightEstimate = 320;
 
-      // Decide placement: if space below is less than menu height, place above
       const spaceBelow = windowHeight - rect.bottom;
-      const placement = spaceBelow < menuHeightEstimate ? 'top' : 'bottom';
-
-      let top = 0;
-      if (placement === 'bottom') {
-        top = rect.bottom + 10; // 10px gap
-      } else {
-        top = rect.top - 10; // 10px gap
-      }
-
-      // Center horizontally relative to button
+      const placement: 'top' | 'bottom' = spaceBelow < menuHeightEstimate ? 'top' : 'bottom';
+      const top = placement === 'bottom' ? rect.bottom : rect.top;
       const left = rect.left + rect.width / 2;
 
       setMenuPosition({ top, left, placement });
@@ -57,193 +63,173 @@ export const AttendanceCell: React.FC<AttendanceCellProps> = ({ date, record, on
   };
 
   const handleStatusClick = (newStatus: 'PRESENT' | 'ABSENT') => {
-    // LOGIQUE DE BASCULEMENT (TOGGLE)
-    // Si le statut cliqué est le même que l'actuel, on décoche (reviens à PENDING)
     if (status === newStatus) {
-        onChange('PENDING');
-        setIsOpen(false);
-        return;
+      onChange('PENDING');
+      setIsOpen(false);
+      return;
     }
 
-    // Sinon, on applique le nouveau statut
     if (newStatus === 'PRESENT') {
       onChange('PRESENT');
       setIsOpen(false);
     } else {
-      // Si on passe à absent, on met une justification par défaut si nécessaire
       if (status !== 'ABSENT') {
-         onChange('ABSENT', JUSTIFICATIONS[0]); 
+        onChange('ABSENT', JUSTIFICATIONS[0]);
       }
     }
   };
 
   const handleJustificationClick = (just: string) => {
     onChange('ABSENT', just);
-    setIsOpen(false); // Always close on click, even if same value
+    setIsOpen(false);
   };
 
   return (
     <>
-      {/* Backdrop for click-outside */}
       {isOpen && (
-        <div 
-            className="fixed inset-0 bg-dark/20 backdrop-blur-[1px] z-[90]"
-            onClick={() => setIsOpen(false)}
+        <div
+          className="fixed inset-0 bg-charcoal-900/40 backdrop-blur-sm z-[90]"
+          onClick={() => setIsOpen(false)}
         ></div>
       )}
 
       <div className="relative group/cell">
-        {/* Main Button */}
         <button
-            ref={buttonRef}
-            onClick={toggleMenu}
-            className={`
-            w-10 h-10 relative flex items-center justify-center border-2 border-dark transition-all duration-200 z-[30]
-            ${status === 'PRESENT' ? 'bg-neon' : status === 'ABSENT' ? 'bg-alert text-white pattern-diagonal' : 'bg-white hover:bg-gray-100'}
-            focus:outline-none hover:scale-105 active:scale-95
-            ${isOpen ? 'scale-105 ring-2 ring-dark ring-offset-1' : ''}
-            `}
+          ref={buttonRef}
+          onClick={toggleMenu}
+          className={`
+            w-10 h-10 relative flex items-center justify-center rounded-lg border transition-all duration-200 focus:outline-none
+            ${
+              status === 'PRESENT'
+                ? 'bg-success-400 border-success-500 shadow-soft'
+                : status === 'ABSENT'
+                  ? 'bg-alert-400 border-alert-500 text-white shadow-soft'
+                  : 'bg-white border-cream-200 hover:bg-cream-100 hover:shadow-soft'
+            }
+            ${isOpen ? 'ring-2 ring-golden-400 ring-offset-2 ring-offset-white' : ''}
+          `}
         >
-            {status === 'PRESENT' && <Check size={20} strokeWidth={3} className="text-dark" />}
-            {status === 'ABSENT' && (
-                <>
-                    <X size={20} strokeWidth={3} className="relative z-10 drop-shadow-md text-white" />
-                    {/* Visual indicator for justification */}
-                    {justification && (
-                        <div className="absolute top-0.5 right-0.5 w-2 h-2 bg-dark border border-white rounded-full z-10"></div>
-                    )}
-                </>
-            )}
-            {status === 'PENDING' && <span className="text-gray-300 text-xs font-bold">?</span>}
+          {status === 'PRESENT' && (
+            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-inner-soft">
+              <Check size={16} strokeWidth={3} className="text-success-600" />
+            </div>
+          )}
+          {status === 'ABSENT' && (
+            <>
+              <div className="w-6 h-6 bg-alert-600 rounded-full flex items-center justify-center shadow-inner-soft">
+                <X size={16} strokeWidth={3} className="text-white" />
+              </div>
+              {justification && (
+                <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-white/80 border border-alert-100 rounded-full"></div>
+              )}
+            </>
+          )}
+          {status === 'PENDING' && (
+            <span className="text-neutral-300 text-xs font-semibold">?</span>
+          )}
         </button>
 
-        {/* Tooltip for Justification (Hover only when ABSENT & has justification & menu closed) */}
         {status === 'ABSENT' && justification && !isOpen && (
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 hidden group-hover/cell:block z-[60] w-max max-w-[200px] pointer-events-none">
-                <div className="bg-dark text-white border-2 border-white shadow-neo px-3 py-2 relative">
-                    <div className="text-[9px] font-bold uppercase text-neon mb-0.5 tracking-wider">Motif d'absence</div>
-                    <div className="text-xs font-bold flex items-center gap-2">
-                        <MessageSquare size={12} className="text-neon" />
-                        <span className="truncate">{justification}</span>
-                    </div>
-                    {/* Arrow */}
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-dark"></div>
-                </div>
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 hidden group-hover/cell:block z-[60] max-w-[220px]">
+            <div className="bg-white border border-cream-200 rounded-card shadow-soft px-3 py-2">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-1">
+                Motif d'absence
+              </div>
+              <div className="flex items-center gap-2 text-xs text-neutral-600">
+                <MessageSquare size={14} className="text-golden-500" />
+                <span className="truncate">{justification}</span>
+              </div>
             </div>
+          </div>
         )}
 
-        {/* Edit Menu - Fixed Positioning Portal-like behavior */}
         {isOpen && menuPosition && (
-            <div 
-                className={`
-                    fixed z-[100] bg-white border-2 border-dark shadow-neo-lg w-[300px] md:w-[340px] p-5 text-dark
-                    
-                    /* Mobile: Always stick to bottom */
-                    max-md:!top-[unset] max-md:!left-0 max-md:!bottom-0 max-md:!translate-x-0 max-md:!translate-y-0 max-md:w-full max-md:rounded-t-xl max-md:border-t-4 max-md:shadow-[0_-10px_40px_rgba(0,0,0,0.2)]
-                    max-md:animate-in max-md:slide-in-from-bottom
-
-                    /* Desktop: Position based on calculation */
-                    md:rounded-none
-                    md:animate-in md:fade-in md:zoom-in-95 md:duration-150
-                `}
-                style={{
-                    // On desktop, apply calculated positions. 
-                    // On mobile, the CSS class overrides these with !important properties above
-                    top: menuPosition.placement === 'bottom' ? menuPosition.top : 'auto',
-                    bottom: menuPosition.placement === 'top' ? (window.innerHeight - menuPosition.top - 10) : 'auto', // Calculate bottom if placing top
-                    left: menuPosition.left,
-                    transform: 'translateX(-50%)', // Center horizontally
-                }}
-            >
-                
-            {/* Connector Triangle (Desktop only) */}
-            <div className={`
-                hidden md:block absolute left-1/2 -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent
-                ${menuPosition.placement === 'bottom' 
-                    ? '-top-[12px] border-b-[12px] border-b-dark after:absolute after:-bottom-[10px] after:-left-[8px] after:border-l-[8px] after:border-l-transparent after:border-r-[8px] after:border-r-transparent after:border-b-[8px] after:border-b-white' 
-                    : '-bottom-[12px] border-t-[12px] border-t-dark after:absolute after:-top-[10px] after:-left-[8px] after:border-l-[8px] after:border-l-transparent after:border-r-[8px] after:border-r-transparent after:border-t-[8px] after:border-t-white'
-                }
-            `}></div>
-
-            {/* Mobile Handle */}
-            <div className="md:hidden w-16 h-1.5 bg-gray-300 rounded-full mx-auto mb-6"></div>
-
-            {/* Content */}
-            <div className="mb-5 text-center">
-                <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">ÉDITION DU STATUT</div>
-                <div className="text-xl font-black uppercase border-b-4 border-neon inline-block pb-1 text-dark">{date}</div>
+          <div
+            className="fixed z-[100] bg-white border border-cream-200 rounded-card shadow-soft-lg w-[320px] max-w-[calc(100vw-32px)] p-5 text-charcoal-800 animate-fade-in"
+            style={{
+              top: menuPosition.top,
+              left: menuPosition.left,
+              transform: `translateX(-50%) ${menuPosition.placement === 'bottom' ? 'translateY(12px)' : 'translateY(-100%) translateY(-12px)'}`,
+            }}
+          >
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <div className="text-xs font-semibold text-neutral-500 uppercase tracking-[0.2em] mb-1">
+                  Mise à jour du statut
+                </div>
+                <div className="text-lg font-semibold text-charcoal-800 capitalize">
+                  {displayDate}
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-2 text-neutral-400 hover:text-charcoal-800 hover:bg-cream-100 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-5">
-                <button
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <SoftButton
+                variant={status === 'PRESENT' ? 'primary' : 'outline'}
+                size="sm"
+                fullWidth
                 onClick={() => handleStatusClick('PRESENT')}
-                className={`
-                    p-3 border-2 border-dark font-bold text-sm transition-all flex flex-col items-center gap-2 justify-center min-h-[80px]
-                    ${status === 'PRESENT' 
-                        ? 'bg-neon text-dark shadow-[inset_3px_3px_0px_rgba(0,0,0,0.1)] translate-x-[2px] translate-y-[2px]' 
-                        : 'bg-white text-dark hover:bg-neon/20 hover:translate-y-[-4px] shadow-neo hover:shadow-neo-hover'}
-                `}
-                >
-                <Check size={28} strokeWidth={3} /> 
-                PRÉSENT
-                </button>
-                <button
+                icon={<Check size={16} />}
+                className={status === 'PRESENT' ? 'shadow-soft-lg' : '!border-success-200 !text-success-600 hover:!border-success-300'}
+              >
+                Présent
+              </SoftButton>
+              <SoftButton
+                variant={status === 'ABSENT' ? 'danger' : 'outline'}
+                size="sm"
+                fullWidth
                 onClick={() => handleStatusClick('ABSENT')}
-                className={`
-                    p-3 border-2 border-dark font-bold text-sm transition-all flex flex-col items-center gap-2 justify-center min-h-[80px]
-                    ${status === 'ABSENT' 
-                        ? 'bg-alert text-white shadow-[inset_3px_3px_0px_rgba(0,0,0,0.2)] pattern-diagonal translate-x-[2px] translate-y-[2px]' 
-                        : 'bg-white text-dark hover:bg-alert/10 hover:translate-y-[-4px] shadow-neo hover:shadow-neo-hover'}
-                `}
-                >
-                <X size={28} strokeWidth={3} /> 
-                ABSENT
-                </button>
+                icon={<X size={16} />}
+                className={status === 'ABSENT' ? 'shadow-soft-lg' : '!border-alert-200 !text-alert-500 hover:!border-alert-300'}
+              >
+                Absent
+              </SoftButton>
             </div>
 
             {status === 'ABSENT' && (
-                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200 bg-gray-50 p-4 border-2 border-gray-200">
-                    <label className="text-xs font-bold uppercase flex items-center gap-2 text-dark mb-2">
-                        <MessageSquare size={14} /> Justification requise
-                    </label>
-                    <div className="flex flex-col gap-2">
-                        {JUSTIFICATIONS.map(j => (
-                            <button
-                                key={j}
-                                onClick={() => handleJustificationClick(j)}
-                                className={`
-                                    w-full text-left px-4 py-3 border-2 font-bold text-xs uppercase transition-all flex items-center justify-between
-                                    ${justification === j 
-                                        ? 'bg-dark text-neon border-dark shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]' 
-                                        : 'bg-white text-dark border-dark hover:bg-white hover:shadow-neo hover:-translate-y-0.5 hover:translate-x-0.5 active:translate-y-0 active:translate-x-0 active:shadow-none'}
-                                `}
-                            >
-                                {j}
-                                {justification === j && <Check size={16} className="text-neon" />}
-                            </button>
-                        ))}
-                    </div>
+              <div className="space-y-3 bg-cream-50 border border-cream-200 rounded-card p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-neutral-500 tracking-wider">
+                  <MessageSquare size={14} />
+                  Sélectionnez un motif
                 </div>
-            )}
-            
-            {/* Option explicite pour effacer (facultatif mais utile pour l'UX) */}
-            {status !== 'PENDING' && (
-                 <button 
-                    onClick={() => { onChange('PENDING'); setIsOpen(false); }}
-                    className="w-full mt-2 py-2 text-xs font-bold uppercase text-gray-400 hover:text-alert hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors flex items-center justify-center gap-2"
-                >
-                    <Minus size={12} /> Effacer le statut
-                </button>
+                <div className="flex flex-col gap-2">
+                  {JUSTIFICATIONS.map((j) => (
+                    <button
+                      key={j}
+                      onClick={() => handleJustificationClick(j)}
+                      className={`w-full px-4 py-3 rounded-input border text-sm font-medium transition-all duration-200 flex items-center justify-between ${
+                        justification === j
+                          ? 'bg-alert-50 border-alert-200 text-alert-600 shadow-soft'
+                          : 'bg-white border-cream-200 text-neutral-600 hover:border-golden-300 hover:bg-cream-50'
+                      }`}
+                    >
+                      <span className="truncate">{j}</span>
+                      {justification === j && <Check size={16} className="text-alert-500" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
-            {/* Mobile Only: Close Button */}
-            <button 
-                onClick={() => setIsOpen(false)}
-                className="mt-4 w-full md:hidden bg-dark text-white font-bold py-4 uppercase tracking-widest active:bg-black"
-            >
-                Fermer
-            </button>
-            </div>
+            {status !== 'PENDING' && (
+              <button
+                onClick={() => {
+                  onChange('PENDING');
+                  setIsOpen(false);
+                }}
+                className="w-full mt-4 text-sm font-medium text-neutral-500 hover:text-alert-500 hover:bg-alert-50 rounded-input py-2 transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <Minus size={14} />
+                Effacer le statut
+              </button>
+            )}
+          </div>
         )}
       </div>
     </>

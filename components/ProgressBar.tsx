@@ -4,57 +4,78 @@ interface ProgressBarProps {
   present: number;
   absent: number;
   total: number;
+  showPercentages?: boolean;
+  height?: 'sm' | 'md' | 'lg';
 }
 
-export const ProgressBar: React.FC<ProgressBarProps> = ({ 
-  present, 
-  absent, 
-  total 
+export const ProgressBar: React.FC<ProgressBarProps> = ({
+  present,
+  absent,
+  total,
+  showPercentages = true,
+  height = 'md'
 }) => {
-  // Calcul des pourcentages par rapport au TOTAL de la période (ex: 15 jours)
-  // Si on a fait 3 jours (3 présents), ça fera 3/15 = 20% (et pas 100%)
   const presentPct = total > 0 ? Math.round((present / total) * 100) : 0;
   const absentPct = total > 0 ? Math.round((absent / total) * 100) : 0;
+  const pendingPct = Math.max(0, 100 - presentPct - absentPct);
+
+  const heights: Record<'sm' | 'md' | 'lg', string> = {
+    sm: 'h-4',
+    md: 'h-6',
+    lg: 'h-8'
+  };
 
   return (
-    <div className="w-full">
-      {/* Labels et Stats */}
-      <div className="flex justify-between mb-1.5 items-end">
-        <div className="flex gap-3 text-[10px] font-bold font-mono uppercase tracking-tight">
-            <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-neon border border-dark"></div>
-                <span className="text-dark">Présent: {present}</span>
-            </div>
-            <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-alert pattern-diagonal border border-dark"></div>
-                <span className="text-alert">Absent: {absent}</span>
-            </div>
-        </div>
-        <span className="text-[10px] font-black font-mono text-gray-400">TOTAL: {total}j</span>
+    <div className="w-full space-y-2">
+      <div className={`w-full ${heights[height]} rounded-full overflow-hidden bg-cream-200 flex shadow-inner-soft`}>
+        {presentPct > 0 && (
+          <div
+            className="h-full bg-gradient-to-r from-success-400 to-success-500 flex items-center justify-center transition-all duration-500"
+            style={{ width: `${presentPct}%` }}
+          >
+            {showPercentages && presentPct >= 10 && (
+              <span className="text-[10px] font-bold text-white drop-shadow-sm">
+                {presentPct}%
+              </span>
+            )}
+          </div>
+        )}
+
+        {absentPct > 0 && (
+          <div
+            className="h-full bg-gradient-to-r from-alert-400 to-alert-500 flex items-center justify-center transition-all duration-500"
+            style={{ width: `${absentPct}%` }}
+          >
+            {showPercentages && absentPct >= 10 && (
+              <span className="text-[10px] font-bold text-white drop-shadow-sm">
+                {absentPct}%
+              </span>
+            )}
+          </div>
+        )}
+
+        {pendingPct > 0 && (
+          <div
+            className="h-full bg-cream-100 flex items-center justify-center transition-all duration-500"
+            style={{ width: `${pendingPct}%` }}
+          >
+            {showPercentages && pendingPct >= 10 && (
+              <span className="text-[10px] font-semibold text-neutral-400">
+                {pendingPct}%
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Barre Segmentée */}
-      <div className="w-full h-5 border-2 border-dark bg-white flex relative overflow-hidden">
-        
-        {/* Segment Présent (Vert) */}
-        <div 
-          className="h-full bg-neon border-r-0 border-dark flex items-center justify-center transition-all duration-500 relative"
-          style={{ width: `${presentPct}%`, borderRightWidth: presentPct > 0 ? '2px' : '0' }}
-        >
-            {presentPct >= 10 && <span className="text-[9px] font-black text-dark z-10">{presentPct}%</span>}
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-gradient-to-r from-success-400 to-success-500"></span>
+          <span className="text-neutral-500 font-medium">{present} présents</span>
         </div>
-
-        {/* Segment Absent (Rouge) */}
-        <div 
-          className="h-full bg-alert pattern-diagonal border-r-0 border-dark flex items-center justify-center transition-all duration-500 relative"
-          style={{ width: `${absentPct}%`, borderRightWidth: absentPct > 0 ? '2px' : '0' }}
-        >
-            {absentPct >= 10 && <span className="text-[9px] font-black text-white drop-shadow-md z-10">{absentPct}%</span>}
-        </div>
-
-        {/* Fond hachuré léger pour les jours restants (Optionnel, pour le style) */}
-        <div className="flex-1 h-full bg-gray-50 opacity-50" 
-             style={{backgroundImage: 'radial-gradient(#ccc 1px, transparent 1px)', backgroundSize: '4px 4px'}}>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-gradient-to-r from-alert-400 to-alert-500"></span>
+          <span className="text-neutral-500 font-medium">{absent} absents</span>
         </div>
       </div>
     </div>
